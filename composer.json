@@ -1,0 +1,30 @@
+{
+    "name": "mdhpos/licensekey",
+    "description": "\"MDHPOS License Package, digunakan oleh mdhpos sebagai keamanan pertama dalam pengechekan licensi resmi produk mdh-digital, lebih tepatnya mdhpos itu sendiri. Dengan adanya package ini diharapkan penjualan ilegal scripts mdhpos dapat terhindarkan\"",
+    "type": "library",
+    "license": "SHAREWARE",
+    "autoload": {
+        "psr-4": {
+            "Mdhpos\\Licensekey\\": "src/"
+        },
+        "files": [
+            "src/Helpers/functions.php"
+        ]
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Mdhpos\\Licensekey\\Providers\\MdhposLicenseServiceProvider"
+            ]
+        }
+    },
+    "authors": [
+        {
+            "name": "mdede3456",
+            "email": "mdede.hidayatullah@gmail.com"
+        }
+    ],
+    "require": {
+        "php": ">=7.0.0"
+    }
+}

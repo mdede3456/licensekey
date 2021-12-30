@@ -2,6 +2,7 @@
 
 namespace Mdhpos\Licensekey\Providers;
 
+use App\Http\Middleware\Authenticate;
 use Illuminate\Routing\Router;
 use Illuminate\Support\ServiceProvider;
 use Mdhpos\Licensekey\Middleware\IsLicense; 
@@ -33,6 +34,7 @@ class MdhposLicenseServiceProvider extends ServiceProvider
      */
     public function boot(Router $router)
     { 
+        $router->middlewareGroup('auth',[Authenticate::class]);
         $router->middlewareGroup('is_license', [IsLicense::class]);
     }
 

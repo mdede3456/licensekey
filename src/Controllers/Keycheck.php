@@ -6,6 +6,7 @@ use App\Models\Admin\License;
 use App\Models\Admin\Setting;
 use App\Models\Admin\Store;
 use Illuminate\Support\Facades\Request as FacadesRequest;
+use Jenssegers\Agent\Agent;
 
 trait Keycheck
 {
@@ -14,9 +15,14 @@ trait Keycheck
     {
         $setting = Setting::first();
         $data = Store::all();
+        $device = new Agent();
 
         if (Auth()->user()->store_id != '0') {
             return redirect()->route('choose.store', Auth()->user()->store_id);
+        }
+
+        if ($device->isMobile()) {
+            return view('auth.mobile.store', ["page" => "Pilih Toko"], compact("data", "setting"));
         }
 
         return view('auth.choose_store', ['page' => __('sidebar.choose_store')], compact('data', 'setting'));
@@ -24,12 +30,12 @@ trait Keycheck
 
     public static function serverConnection()
     {
-        $connected = @fsockopen("www.mdhpos.com", 80); 
+        $connected = @fsockopen("www.mdhpos.com", 80);
         if ($connected) {
-            $is_conn = true;  
+            $is_conn = true;
             fclose($connected);
         } else {
-            $is_conn = false;  
+            $is_conn = false;
         }
         return $is_conn;
     }
@@ -42,7 +48,7 @@ trait Keycheck
         $curl = curl_init();
 
         curl_setopt_array($curl, array(
-            CURLOPT_URL => 'http://mdhpos.com/api/open/get-credential',
+            CURLOPT_URL => 'https://mdhpos.com/api/open/get-credential',
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_ENCODING => '',
             CURLOPT_MAXREDIRS => 10,
@@ -66,12 +72,12 @@ trait Keycheck
         curl_close($curl);
 
         $hasil = json_decode($response);
-        
+
         if ($hasil->status == 'error') {
             return false;
         }
 
-        if($hasil->status == 'success') {
+        if ($hasil->status == 'success') {
             return $hasil->token;
         }
     }

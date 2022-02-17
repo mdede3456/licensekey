@@ -40,9 +40,10 @@ class LicenseController extends Controller
         $deviceName = getHostName();
         $domain = substr(FacadesRequest::root(), 7);
         $curl = curl_init();
-
+        
+       
         curl_setopt_array($curl, array(
-            CURLOPT_URL => 'http://mdhpos.com/api/open/check-license',
+            CURLOPT_URL => 'https://mdhpos.com/api/open/check-license',
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_ENCODING => '',
             CURLOPT_MAXREDIRS => 10,
@@ -65,8 +66,7 @@ class LicenseController extends Controller
 
         curl_close($curl);
 
-        $hasil = json_decode($response);
-
+        $hasil = json_decode($response); 
         if ($hasil->status == 'error') {
             return response()->json([
                 'pesan' => $hasil->message,
@@ -116,7 +116,7 @@ class LicenseController extends Controller
         $curl = curl_init();
 
         curl_setopt_array($curl, array(
-            CURLOPT_URL => 'http://mdhpos.com/api/open/check-license',
+            CURLOPT_URL => 'https://mdhpos.com/api/open/check-license',
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_ENCODING => '',
             CURLOPT_MAXREDIRS => 10,

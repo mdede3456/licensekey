@@ -5,6 +5,7 @@ namespace Mdhpos\Licensekey\Providers;
 use App\Http\Middleware\Authenticate;
 use Illuminate\Routing\Router;
 use Illuminate\Support\ServiceProvider;
+use Mdhpos\Licensekey\Middleware\DeviceMobile;
 use Mdhpos\Licensekey\Middleware\IsLicense; 
 
 class MdhposLicenseServiceProvider extends ServiceProvider
@@ -36,6 +37,7 @@ class MdhposLicenseServiceProvider extends ServiceProvider
     { 
         $router->middlewareGroup('auth',[Authenticate::class]);
         $router->middlewareGroup('is_license', [IsLicense::class]);
+        $router->middlewareGroup('device_mobile', [DeviceMobile::class]);
     }
 
     /**

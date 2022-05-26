@@ -7,6 +7,7 @@ use App\Models\Admin\Customer;
 use App\Models\Admin\Store;
 use App\Models\Product\Stock;
 use App\Models\Product\Supplier;
+use App\Models\Transaction\CreditPriodeList;
 use App\Models\Transaction\Purchase;
 use App\Models\Transaction\ReturnDetail;
 use App\Models\Transaction\SalesReturn;
@@ -237,7 +238,7 @@ class TransactionController extends Controller
 
       public function createReturn(Request $request)
       {
-           
+
             if ($request->qty_return != 0) {
                   $data = new Transaction();
                   $data->store_id = Session::get('mystore');
@@ -513,7 +514,7 @@ class TransactionController extends Controller
             if (!Auth::user()->can('Laporan Purchase')) {
                   abort(403, 'Unauthorized action.');
             }
-            
+
             $store = Store::where(function ($query) {
                   return Auth::user()->store_id != 0 ? $query->where('id', Auth::user()->store_id) : '';
             })->get();
@@ -763,7 +764,7 @@ class TransactionController extends Controller
             $customer = Customer::all();
 
             if ($request->ajax()) {
-                  $data = Transaction::where('type', 'sell')->where('payment_status', 'due')->where('status', 'due')
+                  $data = Transaction::where('type', 'sell')->where('payment_status', 'due')->where('status', 'final')
                         ->where(function ($query) use ($request) {
                               return $request->store ? $query->where('store_id', $request->store) : '';
                         })->where(function ($query) use ($request) {
@@ -811,6 +812,8 @@ class TransactionController extends Controller
       {
             $data       = Transaction::findOrFail($id);
             $payment    = TransactionPayment::where('transaction_id', $data->id)->orderBy('id', 'desc')->get();
+            $cicilan    = CreditPriodeList::where("transaction_id", $id)->where("status", "due")->get(['id', "credit_priode"]);
+
             $status = [
                   'due'   => __('general.sell_due'),
                   "paid"  => __('general.paid'),
@@ -824,12 +827,19 @@ class TransactionController extends Controller
                   })->where('transaction_id', $data->id)->orderBy('id', 'desc')->get();
             }
 
-            return view('vendor.mobile.transaction.due_detail', ['page' => __('report.due_detail')], compact('data', 'payment', 'status'));
+            return view('vendor.mobile.transaction.due_detail', ['page' => __('report.due_detail')], compact('data', 'payment', 'status', 'cicilan'));
       }
+
+      public function listCicilan($id)
+      {
+            $data = Transaction::find($id);
+            return view("vendor.mobile.transaction.cicilan", ["page" => "Cicilan Customer"], compact("data"));
+      }
+
 
       public function addPay(Request $request)
       {
- 
+
             $validator = Validator::make($request->all(), [
                   'payment_amount'        => 'required',
                   'transaction_id'        => 'required'
@@ -841,30 +851,57 @@ class TransactionController extends Controller
 
             $getTransaction = Transaction::findOrFail($request->transaction_id);
 
-            if ($getTransaction->due_total == 0) {
-                  return redirect()->back()->with(['flash' => "Tidak Ada Tunggakan Untuk Transaksi ini"]);
+            if ($getTransaction->type == 'sell') {
+                  $condition = $getTransaction->due_total;
+                  $dbtOrCrd  = 'debit';
+                  if ($getTransaction->due_total == 0) {
+                        return response()->json([
+                              'errors' => "Tidak Ada Tunggakan Untuk Transaksi ini",
+                              'message' => 'nothing'
+                        ]);
+                  }
+            } else if ($getTransaction->type == 'purchase') {
+                  $dbtOrCrd  = 'credit';
+                  $condition = $getTransaction->due_total_po;
+            } else if ($getTransaction->type == 'purchase_return') {
+                  $dbtOrCrd  = 'debit';
+                  $condition = $getTransaction->due_total_return;
+            } else if ($getTransaction->type == 'sales_return') {
+                  $dbtOrCrd  = 'credit';
+                  $condition = $getTransaction->due_total_return_sell;
             }
-
-
 
             $payment = new TransactionPayment();
             $payment->transaction_id    = $request->transaction_id;
 
-            if ($getTransaction->due_total > Helper::fresh_aprice($request->payment_amount) || $getTransaction->due_total ==  Helper::fresh_aprice($request->payment_amount)) {
-                  $pay            = Helper::fresh_aprice($request->payment_amount);
+            if ($request->cicilan_id) {
+                  $getCicilan = CreditPriodeList::find($request->cicilan_id);
+                  $total = $getCicilan->paid_nominal + Helper::fresh_aprice($request->payment_amount);
+
+                  if ($total >= $getCicilan->nominal) {
+                        $pay    = $getCicilan->nominal;
+                  } else {
+                        $pay = $total;
+                  }
             } else {
-                  $pay = $getTransaction->due_total;
+                  if ($condition >= Helper::fresh_aprice($request->payment_amount)) {
+                        $pay    = Helper::fresh_aprice($request->payment_amount);
+                  } else {
+                        $pay    = $condition;
+                  }
             }
 
-            if ($getTransaction->due_total == $pay) {
-                  $getTransaction->status = 'final';
+
+            if ($condition == $pay) {
                   $getTransaction->payment_status = 'paid';
                   $getTransaction->save();
             }
-
+            $payment->created_by        = Auth::user()->id;
             $payment->amount            = $pay;
             $payment->method            = $request->payment_method;
+            $payment->transaction_type  = 'transaction';
             $request->payment_note ? $payment->note = $request->payment_note : null;
+            $request->account_id ? $payment->account_id = $request->account_id : null;
             if ($request->payment_method == 'bank_transfer') {
                   $request->no_rek ? $payment->no_rek = $request->no_rek : null;
                   $request->an ? $payment->an = $request->an : null;
@@ -878,6 +915,8 @@ class TransactionController extends Controller
                   $request->card_year ? $payment->card_year = $request->card_year : null;
                   $request->card_security ? $payment->card_security = $request->card_security : null;
             }
+
+
 
             if ($getTransaction->type == 'sell') {
                   $storeSett = Store::findOrFail(Session::get('mystore'));
@@ -912,7 +951,31 @@ class TransactionController extends Controller
                         }
                   }
             }
+
+            if (!empty($request->cicilan_id)) {
+                  if ($request->cicilan_id != null) {
+                        $payment->cicilan_id = $request->cicilan_id;
+
+                        if ($total >= $getCicilan->nominal) {
+                              $getCicilan->paid_nominal = $getCicilan->nominal;
+                        } else {
+                              $getCicilan->paid_nominal = $total;
+                        }
+
+                        if ($total == $getCicilan->nominal || $total >= $getCicilan->nominal) {
+                              $getCicilan->status = 'paid';
+                        }
+                        $getCicilan->save();
+                  }
+            }
+
             $payment->save();
+
+            if ($request->account_id) {
+                  if ($request->payment_amount > 0) {
+                        Helper::createAccount($dbtOrCrd, $request, $payment);
+                  }
+            }
             return redirect()->back()->with(['flash' => "Pembayaran Berhasil Ditambahkan"]);
       }
 

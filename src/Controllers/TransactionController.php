@@ -47,7 +47,9 @@ class TransactionController extends Controller
             ];
 
             $status = [
-                  'due'   => __('general.sell_due'),
+                  'due'       => __('general.sell_due'),
+                  'transit'   => 'Dalam Pengiriman',
+                  'ordered'   => 'Sedang Dikemas',
                   "paid"  => __('general.paid'),
                   'final' => __('general.paid')
             ];
@@ -221,8 +223,8 @@ class TransactionController extends Controller
                         )->addColumn('satuan', function ($row) {
                               return number_format($row->unit_price);
                         })->addColumn('subtotal', function ($row) {
-                              $allqty = $row->qty - $row->qty_return;
-                              $subtotal = $row->unit_price_before_disc * $allqty;
+                              $allqty     = (int)$row->qty - (int)$row->qty_return;
+                              $subtotal   = (int)$row->unit_price_before_disc * (int)$allqty;
                               return number_format($subtotal);
                         })->addColumn('profit', function ($row) {
                               return number_format($row->profit_sales);
